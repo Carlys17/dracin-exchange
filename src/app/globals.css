@@ -2,44 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-
-* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.06) transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgba(167,139,250,0.1) transparent; }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(167,139,250,0.15); border-radius: 2px; }
 
-body { background: #080b10; color: #f0f6fc; }
+body { background: #0e0c15; color: #E8E4F0; }
 
 input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 input[type="number"] { -moz-appearance: textfield; }
 input:focus { outline: none; }
-button:focus-visible { outline: 2px solid rgba(0, 217, 165, 0.4); outline-offset: 2px; }
+button:focus-visible { outline: 2px solid rgba(167,139,250,0.4); outline-offset: 2px; }
 
-.gradient-accent {
-  background: linear-gradient(135deg, #00d9a5 0%, #00b4d8 100%);
+/* ShieldScan card style */
+.ss-card {
+  background: #1C1A2E;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
 }
-.gradient-text {
-  background: linear-gradient(135deg, #00d9a5 0%, #00b4d8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.gradient-glow {
-  background: linear-gradient(135deg, rgba(0,217,165,0.15) 0%, rgba(0,180,216,0.1) 100%);
-}
+
+/* ShieldScan gradient button */
 .btn-swap {
-  background: linear-gradient(135deg, #00d9a5, #00b4d8);
+  background: linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%);
   transition: all 0.2s ease;
+  color: white;
 }
 .btn-swap:hover {
-  box-shadow: 0 0 30px rgba(0, 217, 165, 0.25), 0 0 60px rgba(0, 180, 216, 0.1);
+  box-shadow: 0 0 30px rgba(167, 139, 250, 0.25);
   filter: brightness(1.1);
 }
 .btn-swap:active { transform: scale(0.98); }
-.glass-card {
-  background: rgba(17, 24, 32, 0.85);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(240, 246, 252, 0.06);
+
+/* Amber accent button (like ShieldScan "EVM Chains") */
+.btn-outline {
+  border: 1px solid rgba(240, 180, 41, 0.3);
+  background: rgba(240, 180, 41, 0.06);
+  color: #F0B429;
 }
+.btn-outline:hover {
+  background: rgba(240, 180, 41, 0.12);
+  border-color: rgba(240, 180, 41, 0.5);
+}
+
+/* Left border accent (like ShieldScan findings) */
+.border-left-critical { border-left: 3px solid #EF4444; }
+.border-left-high { border-left: 3px solid #F97316; }
+.border-left-medium { border-left: 3px solid #EAB308; }
+.border-left-low { border-left: 3px solid #22C55E; }
+.border-left-purple { border-left: 3px solid #A78BFA; }
