@@ -42,5 +42,5 @@ export function DracinWidget() {
     []
   );
 
-  return <LiFiWidget config={config} />;
+  return <LiFiWidget integrator="dracin-exchange" config={config} />;
 }
