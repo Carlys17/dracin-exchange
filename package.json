@@ -9,12 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@lifi/widget": "^3.14.0",
+    "@bigmi/react": "^0.7.0",
     "@lifi/wallet-management": "^3.1.0",
-    "@bigmi/react": "^0.1.0",
-    "@solana/wallet-adapter-react": "^0.15.35",
+    "@lifi/widget": "^3.14.0",
     "@mysten/dapp-kit": "^0.14.0",
+    "@solana/wallet-adapter-react": "^0.15.35",
     "@tanstack/react-query": "^5.62.0",
+    "@wagmi/connectors": "^5.7.0",
+    "@wagmi/core": "^2.16.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.460.0",
     "next": "14.2.20",
@@ -22,9 +24,7 @@
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.6.0",
     "viem": "^2.21.0",
-    "wagmi": "^2.14.0",
-    "@wagmi/connectors": "^5.7.0",
-    "@wagmi/core": "^2.16.0"
+    "wagmi": "^2.14.0"
   },
   "overrides": {
     "react": "^18.3.1",
