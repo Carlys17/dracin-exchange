@@ -1,0 +1,20 @@
+import type { Metadata } from "next";
+import { Web3Provider } from "@/providers/web3-provider";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Dracin Exchange — Cross-Chain Bridge & DEX Aggregator",
+  description: "Find the best routes across 15+ bridges and 20+ chains. Best rates, fastest routes, lowest fees.",
+  openGraph: {
+    title: "Dracin Exchange",
+    description: "Cross-chain bridge & DEX aggregator",
+  },
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body className="min-h-screen bg-bg-primary font-sans antialiased">{children}</body>
+    </html>
+  );
+}
