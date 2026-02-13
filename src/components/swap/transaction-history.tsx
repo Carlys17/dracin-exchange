@@ -1,128 +1,72 @@
 "use client";
-
 import { useSwapStore } from "@/store/swap-store";
 import { TrackedTransaction } from "@/lib/types";
-import { formatAmount, formatTime, shortenAddress } from "@/lib/utils";
-import {
-  Clock,
-  CheckCircle2,
-  XCircle,
-  ExternalLink,
-  ArrowRight,
-  Loader2,
-} from "lucide-react";
+import { formatAmount } from "@/lib/utils";
+import { Clock, CheckCircle2, XCircle, ExternalLink, ArrowRight, Loader2, Inbox } from "lucide-react";
 import { getChain } from "@/lib/config/chains";
 
-const STATUS_CONFIG: Record<
-  string,
-  { label: string; color: string; icon: typeof Clock }
-> = {
+const STATUS: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   pending: { label: "Pending", color: "text-warning", icon: Clock },
-  "src-confirmed": { label: "Source Confirmed", color: "text-warning", icon: Loader2 },
-  bridging: { label: "Bridging", color: "text-secondary", icon: Loader2 },
-  "dst-confirmed": { label: "Dest Confirmed", color: "text-accent", icon: CheckCircle2 },
+  "src-confirmed": { label: "Confirming", color: "text-warning", icon: Loader2 },
+  bridging: { label: "Bridging", color: "text-accent-secondary", icon: Loader2 },
   completed: { label: "Completed", color: "text-accent", icon: CheckCircle2 },
   failed: { label: "Failed", color: "text-danger", icon: XCircle },
-  refunded: { label: "Refunded", color: "text-warning", icon: XCircle },
 };
 
 export function TransactionHistory() {
   const { transactions } = useSwapStore();
-
-  if (transactions.length === 0) {
-    return (
-      <div className="rounded-xl border border-white/5 bg-surface-1 p-8 text-center">
-        <p className="text-sm text-text-tertiary">No transactions yet</p>
-        <p className="mt-1 text-xs text-text-tertiary/60">
-          Your cross-chain swaps will appear here
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {transactions.map((tx) => (
-        <TxCard key={tx.id} tx={tx} />
-      ))}
+  if (transactions.length === 0) return (
+    <div className="rounded-xl border border-border bg-bg-card p-8 text-center">
+      <Inbox size={28} className="mx-auto mb-2 text-text-disabled" />
+      <p className="text-xs text-text-muted">No transactions yet</p>
+      <p className="mt-0.5 text-[10px] text-text-disabled">Your swaps will appear here</p>
     </div>
   );
-}
-
-function TxCard({ tx }: { tx: TrackedTransaction }) {
-  const config = STATUS_CONFIG[tx.status] || STATUS_CONFIG.pending;
-  const srcChain = getChain(tx.route.steps[0]?.srcChainId || 1);
-  const dstChain = getChain(tx.route.steps[tx.route.steps.length - 1]?.dstChainId || 1);
 
   return (
-    <div className="rounded-xl border border-white/5 bg-surface-2 p-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1">
-          {/* Status */}
-          <div className="flex items-center gap-1.5 mb-2">
-            <config.icon
-              size={13}
-              className={`${config.color} ${
-                tx.status === "bridging" || tx.status === "pending"
-                  ? "animate-spin"
-                  : ""
-              }`}
-            />
-            <span className={`text-xs font-semibold ${config.color}`}>
-              {config.label}
-            </span>
-            <span className="text-[10px] text-text-tertiary">
-              {new Date(tx.startedAt).toLocaleTimeString()}
-            </span>
+    <div className="space-y-1.5">
+      <span className="px-0.5 text-[10px] font-bold uppercase tracking-widest text-text-muted">Recent</span>
+      {transactions.map((tx) => {
+        const cfg = STATUS[tx.status] || STATUS.pending;
+        const src = getChain(tx.route.steps[0]?.srcChainId || 1);
+        const dst = getChain(tx.route.steps[tx.route.steps.length - 1]?.dstChainId || 1);
+        const active = tx.status === "pending" || tx.status === "bridging";
+        return (
+          <div key={tx.id} className={`rounded-xl border p-3 ${active ? "border-accent/20 bg-accent/[0.02]" : "border-border bg-bg-card"}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <cfg.icon size={11} className={`${cfg.color} ${active ? "animate-spin" : ""}`} />
+                  <span className={`text-[11px] font-bold ${cfg.color}`}>{cfg.label}</span>
+                  <span className="text-[9px] text-text-disabled">{new Date(tx.startedAt).toLocaleTimeString()}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="font-mono font-bold text-text-primary">{formatAmount(tx.route.srcAmount, tx.route.srcToken.decimals)} {tx.route.srcToken.symbol}</span>
+                  <ArrowRight size={10} className="text-text-disabled" />
+                  <span className="font-mono font-bold text-text-primary">{formatAmount(tx.route.dstAmount, tx.route.dstToken.decimals)} {tx.route.dstToken.symbol}</span>
+                </div>
+                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-text-disabled">
+                  <span>{src?.shortName}</span><ArrowRight size={7} /><span>{dst?.shortName}</span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1 shrink-0">
+                {tx.srcTxHash && src && (
+                  <a href={`${src.explorerUrl}/tx/${tx.srcTxHash}`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 rounded-md bg-bg-elevated px-1.5 py-0.5 text-[9px] text-text-muted hover:text-accent">
+                    Src <ExternalLink size={8} />
+                  </a>
+                )}
+                {tx.dstTxHash && dst && (
+                  <a href={`${dst.explorerUrl}/tx/${tx.dstTxHash}`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 rounded-md bg-bg-elevated px-1.5 py-0.5 text-[9px] text-text-muted hover:text-accent">
+                    Dst <ExternalLink size={8} />
+                  </a>
+                )}
+              </div>
+            </div>
           </div>
-
-          {/* Route summary */}
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-mono text-text-primary">
-              {formatAmount(tx.route.srcAmount, tx.route.srcToken.decimals)}{" "}
-              {tx.route.srcToken.symbol}
-            </span>
-            <ArrowRight size={12} className="text-text-tertiary" />
-            <span className="font-mono text-text-primary">
-              {formatAmount(tx.route.dstAmount, tx.route.dstToken.decimals)}{" "}
-              {tx.route.dstToken.symbol}
-            </span>
-          </div>
-
-          {/* Chain info */}
-          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-text-tertiary">
-            <span>{srcChain?.shortName}</span>
-            <ArrowRight size={8} />
-            <span>{dstChain?.shortName}</span>
-            <span className="mx-1">·</span>
-            <span>via {tx.adapter}</span>
-          </div>
-        </div>
-
-        {/* Explorer links */}
-        <div className="flex flex-col gap-1">
-          {tx.srcTxHash && srcChain && (
-            <a
-              href={`${srcChain.explorerUrl}/tx/${tx.srcTxHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[10px] text-text-tertiary hover:text-accent"
-            >
-              Source <ExternalLink size={9} />
-            </a>
-          )}
-          {tx.dstTxHash && dstChain && (
-            <a
-              href={`${dstChain.explorerUrl}/tx/${tx.dstTxHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[10px] text-text-tertiary hover:text-accent"
-            >
-              Dest <ExternalLink size={9} />
-            </a>
-          )}
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 }
