@@ -118,7 +118,7 @@ export function useSwapExecution() {
         const spender = txData.to as `0x${string}`;
 
         // Read current allowance
-        const allowance = await walletClient.readContract({
+        const allowance = await publicClient!.readContract({
           address: tokenAddr,
           abi: erc20Abi,
           functionName: "allowance",
