@@ -11,7 +11,7 @@ import { FeeInfoBanner } from "./fee-info";
 import {
   ArrowDownUp, Settings, Loader2, AlertTriangle, Rocket,
   History, Clock, Fuel, Route, ChevronDown, ChevronUp,
-  Shield, Wallet, RefreshCw, DollarSign,
+  Shield, Wallet, RefreshCw, DollarSign, CheckCircle2, ShieldCheck,
 } from "lucide-react";
 import { formatAmount, formatUSD } from "@/lib/utils";
 
@@ -30,9 +30,7 @@ export function SwapCard() {
 
   const { isConnected, address, chain: walletChain } = useAccount();
   const { switchChainAsync } = useSwitchChain();
-  const { execute } = useSwapExecution();
-
-  // Fetch wallet balances from LI.FI (all tokens on srcChain with USD)
+  const { execute, step: swapStep } = useSwapExecution();
   const { tokens: walletTokens, totalUSD } = useWalletBalances(srcChain?.id);
 
   const [showSettings, setShowSettings] = useState(false);
@@ -41,13 +39,14 @@ export function SwapCard() {
   const [isSwapping, setIsSwapping] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successTx, setSuccessTx] = useState<string | null>(null);
 
   useQuote();
-  useEffect(() => { setError(null); }, [amount, srcChain, dstChain, srcToken, dstToken]);
+  useEffect(() => { setError(null); setSuccessTx(null); }, [amount, srcChain, dstChain, srcToken, dstToken]);
 
   const wrongChain = !!(isConnected && srcChain && walletChain && walletChain.id !== srcChain.id);
 
-  // Find current token balance from wallet tokens (LI.FI data)
+  // Balance from LI.FI wallet tokens
   const currentTokenBal = useMemo(() => {
     if (!srcToken || !walletTokens.length) return null;
     return walletTokens.find(
@@ -58,23 +57,13 @@ export function SwapCard() {
   // Fallback: wagmi native balance
   const { data: nativeBal } = useBalance({ address, chainId: srcChain?.id });
 
-  // Effective balance display
   const balDisplay = useMemo(() => {
     if (currentTokenBal) {
-      return {
-        amount: currentTokenBal.balance,
-        symbol: currentTokenBal.symbol,
-        usd: currentTokenBal.balanceUSD,
-        decimals: currentTokenBal.decimals,
-      };
+      return { amount: currentTokenBal.balance, symbol: currentTokenBal.symbol, usd: currentTokenBal.balanceUSD, decimals: currentTokenBal.decimals };
     }
     if (isNativeAddr(srcToken?.address) && nativeBal) {
-      return {
-        amount: parseFloat(nativeBal.formatted),
-        symbol: nativeBal.symbol,
-        usd: srcToken?.priceUSD ? parseFloat(nativeBal.formatted) * srcToken.priceUSD : 0,
-        decimals: nativeBal.decimals,
-      };
+      const val = parseFloat(nativeBal.formatted);
+      return { amount: val, symbol: nativeBal.symbol, usd: srcToken?.priceUSD ? val * srcToken.priceUSD : 0, decimals: nativeBal.decimals };
     }
     return null;
   }, [currentTokenBal, nativeBal, srcToken]);
@@ -98,19 +87,50 @@ export function SwapCard() {
 
   const handleSwap = async () => {
     if (!selectedRoute || !isConnected) return;
-    setError(null); setIsSwapping(true);
-    try { await execute(); }
-    catch (e: any) {
+    setError(null); setSuccessTx(null); setIsSwapping(true);
+    try {
+      const txHash = await execute();
+      setSuccessTx(txHash as string);
+    } catch (e: any) {
       const msg = e?.shortMessage || e?.message || "Failed";
       const l = msg.toLowerCase();
-      if (l.includes("rejected") || l.includes("denied") || l.includes("switch")) {} else setError(msg);
-    }
-    finally { setIsSwapping(false); }
+      if (l.includes("rejected") || l.includes("denied")) {
+        setError("Transaction rejected in wallet");
+      } else if (l.includes("switch") || l.includes("chain")) {
+        // Ignore chain switch errors
+      } else {
+        setError(msg);
+      }
+    } finally { setIsSwapping(false); }
   };
 
   const hasAmount = !!(amount && parseFloat(amount) > 0);
   const insufficientBalance = !!(balDisplay && hasAmount && !wrongChain && parseFloat(amount) > balDisplay.amount);
   const canSwap = !!(isConnected && selectedRoute && !isLoadingRoutes && !isSwapping && hasAmount && !insufficientBalance && !wrongChain);
+
+  // Step label for button
+  const getSwapButtonContent = () => {
+    if (isSwapping) {
+      const stepLabel = swapStep === "switching" ? "Switching Network..."
+        : swapStep === "approving" ? "Approving Token..."
+        : swapStep === "swapping" ? "Confirming Swap..."
+        : swapStep === "done" ? "Success!"
+        : "Processing...";
+      return <span className="flex items-center justify-center gap-2">
+        {swapStep === "done" ? <CheckCircle2 size={15} /> : <Loader2 size={15} className="animate-spin" />}
+        {stepLabel}
+      </span>;
+    }
+    if (insufficientBalance) return "Insufficient Balance";
+    if (!isConnected) return "Connect Wallet";
+    if (!hasAmount) return "Enter Amount";
+    if (isLoadingRoutes) return <span className="flex items-center justify-center gap-2"><Loader2 size={15} className="animate-spin" />Finding Route...</span>;
+    if (!selectedRoute) return "No Routes Available";
+    return <span className="flex items-center justify-center gap-2"><Rocket size={14} />Swap</span>;
+  };
+
+  const fmtBal = (n: number) => n < 0.0001 ? "<0.0001" : n < 1 ? n.toFixed(4) : n < 1000 ? n.toFixed(3) : `${(n / 1000).toFixed(1)}K`;
+  const fmtUsd = (n: number) => n < 0.01 ? "" : n < 1000 ? `$${n.toFixed(2)}` : `$${(n / 1000).toFixed(1)}K`;
 
   return (
     <div className="w-full max-w-[460px]">
@@ -121,13 +141,10 @@ export function SwapCard() {
             <h2 className="text-[14px] font-bold text-text-primary">Cross-Chain Swap</h2>
           </div>
           <div className="flex items-center gap-1">
-            {/* Portfolio total */}
             {isConnected && totalUSD > 0 && (
               <div className="hidden sm:flex items-center gap-1 rounded-lg bg-bg-elevated px-2 py-1 mr-1">
                 <DollarSign size={10} className="text-accent-green" />
-                <span className="font-mono text-[10px] font-semibold text-accent-green">
-                  ${totalUSD < 1000 ? totalUSD.toFixed(2) : `${(totalUSD / 1000).toFixed(1)}K`}
-                </span>
+                <span className="font-mono text-[10px] font-semibold text-accent-green">{fmtUsd(totalUSD)}</span>
               </div>
             )}
             <button onClick={() => { setShowHistory(!showHistory); setShowSettings(false); }}
@@ -173,25 +190,19 @@ export function SwapCard() {
               </div>
               <TokenSelector selected={srcToken} chainId={srcChain?.id || 1} onSelect={setSrcToken} />
             </div>
-            {/* Balance from LI.FI or wagmi */}
             {isConnected && balDisplay && (
               <div className="mt-2.5 flex items-center justify-between border-t border-border/50 pt-2">
                 <div className="flex items-center gap-1.5 text-[11px] font-mono text-text-muted">
                   <Wallet size={10} />
-                  <span>{balDisplay.amount < 0.0001 ? "<0.0001" : balDisplay.amount < 1 ? balDisplay.amount.toFixed(4) : balDisplay.amount < 1000 ? balDisplay.amount.toFixed(3) : `${(balDisplay.amount / 1000).toFixed(1)}K`} {balDisplay.symbol}</span>
-                  {balDisplay.usd > 0.01 && (
-                    <span className="text-text-disabled">≈ ${balDisplay.usd < 1000 ? balDisplay.usd.toFixed(2) : `${(balDisplay.usd / 1000).toFixed(1)}K`}</span>
-                  )}
+                  <span>{fmtBal(balDisplay.amount)} {balDisplay.symbol}</span>
+                  {balDisplay.usd > 0.01 && <span className="text-text-disabled">≈ {fmtUsd(balDisplay.usd)}</span>}
                 </div>
-                {!wrongChain && (
-                  <button onClick={handleMax} className="rounded bg-accent-amber-dim px-2 py-0.5 text-[10px] font-bold text-accent-amber hover:bg-accent-amber/20">MAX</button>
-                )}
+                {!wrongChain && <button onClick={handleMax} className="rounded bg-accent-amber-dim px-2 py-0.5 text-[10px] font-bold text-accent-amber hover:bg-accent-amber/20">MAX</button>}
               </div>
             )}
             {insufficientBalance && <p className="mt-1.5 text-[10px] font-semibold text-severity-critical">Insufficient balance</p>}
           </div>
 
-          {/* Switch */}
           <div className="relative flex justify-center -my-0.5 z-10">
             <button onClick={switchTokens} className="rounded-lg border-[3px] border-bg-primary bg-bg-card p-2 text-text-disabled shadow-card hover:bg-accent-purple-dim hover:text-accent-purple hover:border-accent-purple/20 active:scale-90">
               <ArrowDownUp size={14} strokeWidth={2.5} />
@@ -236,6 +247,35 @@ export function SwapCard() {
             </button>
           )}
 
+          {/* Swap step indicator */}
+          {isSwapping && (
+            <div className="rounded-lg border border-accent-purple/20 bg-accent-purple-dim px-3 py-2">
+              <div className="flex items-center gap-6 text-[11px]">
+                <span className={`flex items-center gap-1 ${swapStep === "switching" ? "text-accent-purple font-bold" : swapStep === "approving" || swapStep === "swapping" || swapStep === "done" ? "text-accent-green" : "text-text-disabled"}`}>
+                  {swapStep === "switching" ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
+                  Network
+                </span>
+                <span className={`flex items-center gap-1 ${swapStep === "approving" ? "text-accent-purple font-bold" : swapStep === "swapping" || swapStep === "done" ? "text-accent-green" : "text-text-disabled"}`}>
+                  {swapStep === "approving" ? <Loader2 size={10} className="animate-spin" /> : (swapStep === "swapping" || swapStep === "done") ? <CheckCircle2 size={10} /> : <ShieldCheck size={10} />}
+                  Approve
+                </span>
+                <span className={`flex items-center gap-1 ${swapStep === "swapping" ? "text-accent-purple font-bold" : swapStep === "done" ? "text-accent-green" : "text-text-disabled"}`}>
+                  {swapStep === "swapping" ? <Loader2 size={10} className="animate-spin" /> : swapStep === "done" ? <CheckCircle2 size={10} /> : <Rocket size={10} />}
+                  Swap
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Success */}
+          {successTx && !isSwapping && (
+            <div className="flex items-center gap-2 rounded-lg border border-accent-green/20 bg-accent-green/5 px-3 py-2.5 text-[12px] text-accent-green">
+              <CheckCircle2 size={13} />
+              <span>Transaction submitted! Tracking in progress...</span>
+            </div>
+          )}
+
+          {/* Error */}
           {error && (
             <div className="flex items-center gap-2 rounded-lg border-left-critical border border-severity-critical/20 bg-severity-critical-bg pl-4 pr-3 py-2.5 text-[12px] text-severity-critical">
               <AlertTriangle size={13} /><span>{error}</span>
@@ -251,13 +291,7 @@ export function SwapCard() {
           ) : (
             <button onClick={handleSwap} disabled={!canSwap}
               className={`w-full rounded-lg py-3.5 text-[13px] font-bold transition-all ${insufficientBalance ? "cursor-not-allowed bg-severity-critical-bg text-severity-critical border border-severity-critical/20" : canSwap ? "btn-swap" : "cursor-not-allowed bg-bg-card text-text-disabled border border-border"}`}>
-              {isSwapping ? <span className="flex items-center justify-center gap-2"><Loader2 size={15} className="animate-spin" />Swapping...</span>
-              : insufficientBalance ? "Insufficient Balance"
-              : !isConnected ? "Connect Wallet"
-              : !hasAmount ? "Enter Amount"
-              : isLoadingRoutes ? <span className="flex items-center justify-center gap-2"><Loader2 size={15} className="animate-spin" />Finding Route...</span>
-              : !selectedRoute ? "No Routes Available"
-              : <span className="flex items-center justify-center gap-2"><Rocket size={14} />Swap</span>}
+              {getSwapButtonContent()}
             </button>
           )}
 

@@ -12,6 +12,8 @@ import { injected, walletConnect } from "wagmi/connectors";
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "";
 
+// Use public RPCs that are NOT blocked by ad blockers
+// Prefer: Cloudflare, Ankr, chain-official RPCs
 export const wagmiConfig = createConfig({
   chains: [
     mainnet, arbitrum, optimism, base, polygon, bsc, avalanche,
@@ -31,12 +33,13 @@ export const wagmiConfig = createConfig({
     })] : []),
   ],
   transports: {
-    [mainnet.id]: http("https://eth.llamarpc.com"),
+    // Primary: Cloudflare/Ankr/Official (not blocked by ad blockers)
+    [mainnet.id]: http("https://cloudflare-eth.com"),
     [arbitrum.id]: http("https://arb1.arbitrum.io/rpc"),
     [optimism.id]: http("https://mainnet.optimism.io"),
     [base.id]: http("https://mainnet.base.org"),
     [polygon.id]: http("https://polygon-rpc.com"),
-    [bsc.id]: http("https://bsc-dataseed.binance.org"),
+    [bsc.id]: http("https://bsc-dataseed1.binance.org"),
     [avalanche.id]: http("https://api.avax.network/ext/bc/C/rpc"),
     [linea.id]: http("https://rpc.linea.build"),
     [zkSync.id]: http("https://mainnet.era.zksync.io"),
