@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount, useBalance } from "wagmi";
 import { useSwapStore } from "@/store/swap-store";
 import { useQuote, useSwapExecution } from "@/hooks/use-swap";
@@ -19,7 +19,7 @@ const isNative = (a?: string) => a ? NATIVE.includes(a.toLowerCase()) : false;
 export function SwapCard() {
   const { srcChain, dstChain, srcToken, dstToken, amount, slippage, selectedRoute, isLoadingRoutes, routes,
     setSrcChain, setDstChain, setSrcToken, setDstToken, setAmount, setSlippage, switchTokens } = useSwapStore();
-  const { isConnected, address } = useAccount();
+  const { isConnected, address, chain: walletChain } = useAccount();
   const { execute } = useSwapExecution();
   const [showSettings, setShowSettings] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -28,9 +28,23 @@ export function SwapCard() {
   const [error, setError] = useState<string | null>(null);
   useQuote();
 
-  const { data: nativeBal } = useBalance({ address, chainId: srcChain?.id });
-  const { data: tokenBal } = useBalance({ address, chainId: srcChain?.id, token: srcToken && !isNative(srcToken.address) ? srcToken.address as `0x${string}` : undefined });
-  const bal = srcToken && isNative(srcToken.address) ? nativeBal : tokenBal;
+  // Clear error when user changes input
+  useEffect(() => { setError(null); }, [amount, srcChain, dstChain, srcToken, dstToken]);
+
+  // Fetch balance from wallet's CURRENT chain (not srcChain)
+  // This ensures balance always shows regardless of which chain user is on
+  const { data: nativeBal } = useBalance({ address });
+  const { data: tokenBal } = useBalance({
+    address,
+    token: srcToken && !isNative(srcToken.address) && walletChain?.id === srcChain?.id
+      ? srcToken.address as `0x${string}` : undefined,
+  });
+
+  // Show native balance if token is native OR if wallet chain doesn't match src chain
+  const walletMatchesSrc = walletChain?.id === srcChain?.id;
+  const bal = walletMatchesSrc
+    ? (srcToken && isNative(srcToken.address) ? nativeBal : tokenBal || nativeBal)
+    : nativeBal;
 
   const handleMax = () => {
     if (!bal) return;
@@ -42,12 +56,21 @@ export function SwapCard() {
 
   const handleSwap = async () => {
     setError(null); setIsSwapping(true);
-    try { await execute(); } catch (e: any) { setError(e?.shortMessage || e?.message || "Failed"); }
+    try { await execute(); } catch (e: any) {
+      const msg = e?.shortMessage || e?.message || "Failed";
+      // Make chain switch errors more user-friendly
+      if (msg.includes("switch chain") || msg.includes("SwitchChain") || msg.includes("user rejected")) {
+        setError("Please approve the network switch in your wallet");
+      } else {
+        setError(msg);
+      }
+    }
     finally { setIsSwapping(false); }
   };
 
   const canSwap = isConnected && selectedRoute && !isLoadingRoutes && !isSwapping && parseFloat(amount) > 0;
-  const lowBal = bal && amount && parseFloat(amount) > parseFloat(bal.formatted);
+  const lowBal = walletMatchesSrc && bal && amount && parseFloat(amount) > parseFloat(bal.formatted);
+  const wrongChain = isConnected && srcChain && walletChain && walletChain.id !== srcChain.id;
 
   return (
     <div className="w-full max-w-[460px]">
@@ -103,13 +126,17 @@ export function SwapCard() {
               </div>
               <TokenSelector selected={srcToken} chainId={srcChain?.id || 1} onSelect={setSrcToken} />
             </div>
+            {/* Balance row */}
             {isConnected && bal && (
               <div className="mt-2.5 flex items-center justify-between border-t border-border/50 pt-2">
                 <div className="flex items-center gap-1.5 text-[11px] font-mono text-text-disabled">
                   <Wallet size={10} />
                   <span>{parseFloat(bal.formatted).toFixed(bal.decimals > 8 ? 6 : 4)} {bal.symbol}</span>
+                  {wrongChain && <span className="text-accent-amber text-[9px]">({walletChain?.name})</span>}
                 </div>
-                <button onClick={handleMax} className="rounded bg-accent-amber-dim px-2 py-0.5 text-[10px] font-bold text-accent-amber transition-all hover:bg-accent-amber/20">MAX</button>
+                {walletMatchesSrc && (
+                  <button onClick={handleMax} className="rounded bg-accent-amber-dim px-2 py-0.5 text-[10px] font-bold text-accent-amber transition-all hover:bg-accent-amber/20">MAX</button>
+                )}
               </div>
             )}
             {lowBal && <p className="mt-1.5 text-[10px] font-semibold text-severity-critical">Insufficient balance</p>}
@@ -143,6 +170,14 @@ export function SwapCard() {
               <TokenSelector selected={dstToken} chainId={dstChain?.id || 42161} onSelect={setDstToken} />
             </div>
           </div>
+
+          {/* Wrong chain notice */}
+          {wrongChain && !error && (
+            <div className="flex items-center gap-2 rounded-lg bg-accent-amber-dim px-3 py-2 text-[11px] text-accent-amber">
+              <Shield size={12} />
+              <span>Wallet on <strong>{walletChain?.name}</strong> — will auto-switch to <strong>{srcChain?.name}</strong> on swap</span>
+            </div>
+          )}
 
           {/* Route details */}
           {selectedRoute && !isLoadingRoutes && (
